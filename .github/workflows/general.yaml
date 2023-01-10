@@ -1,3 +1,53 @@
+name: Rust
+
+on:
+  # NB: this differs from the book's project!
+  # These settings allow us to run this specific CI pipeline for PRs against
+  # this specific branch (a.k.a. book chapter).
+  push:
+    branches:
+      - root-chapter-03-part1
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    branches:
+      - root-chapter-03-part1
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:12
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+    env:
+      SQLX_VERSION: 0.6.2
+      SQLX_FEATURES: "rustls,postgres"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Cache dependencies
+        id: cache-dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
           override: true
 
       - name: Cache sqlx-cli
@@ -6,9 +56,9 @@
         with:
           path: |
             ~/.cargo/bin/sqlx
-            ~/.cargo/bin/cargo-sqlx
           key: ${{ runner.os }}-sqlx-${{ env.SQLX_VERSION }}
-      - name: Install sqlx-cli
+
+      - name: Install sqlx-cli 
         uses: actions-rs/cargo@v1
         if: steps.cache-sqlx.outputs.cache-hit == false
         with:
@@ -24,9 +74,6 @@
         run: |
           sudo apt-get install libpq-dev -y
           SKIP_DOCKER=true ./scripts/init_db.sh
-      - name: Check sqlx-data.json is up-to-date
-        run: |
-          cargo sqlx prepare --check -- --bin zero2prod
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
@@ -69,8 +116,8 @@
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
           components: clippy
+          toolchain: stable
           override: true
 
       - name: Cache sqlx-cli
@@ -115,10 +162,6 @@
           POSTGRES_DB: postgres
         ports:
           - 5432:5432
-      redis:
-        image: redis:6
-        ports:
-          - 6379:6379
     env:
       SQLX_VERSION: 0.6.2
       SQLX_FEATURES: "rustls,postgres"
